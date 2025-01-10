@@ -6,7 +6,6 @@ set -euo pipefail
 
 # configure script actions
 DO_PREPARE_OS=true
-DO_INSTALL_DOCKER=true
 DO_INSTALL_ENCLAVE=true
 DO_INSTALL_NETDATA=false
 DO_RESTRICT_ROOT=false
@@ -46,32 +45,6 @@ if [ "$DO_PREPARE_OS" = "true" ]; then
         sed -i "s/$HOSTNAME/$NEW_HOSTNAME/g" /etc/hostname
         hostname $NEW_HOSTNAME
     fi
-
-fi
-
-# install and configure docker
-if [ "$DO_INSTALL_DOCKER" = "true" ]; then
-
-    echo "Installing and configuring Docker ..."
-
-    mkdir -p /etc/apt/keyrings
-    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-    apt -y update
-    apt -y install docker-ce docker-ce-cli containerd.io docker-compose-plugin
-    systemctl enable docker
-
-    # Configure metrics, and disable default bridge
-    cat > /etc/docker/daemon.json <<EOF
-{
-    "metrics-addr": "127.0.0.1:9323",
-    "experimental": true,
-    "bridge": "none"
-}
-EOF
-
-    systemctl restart docker
 
 fi
 
