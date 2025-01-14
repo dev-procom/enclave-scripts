@@ -7,9 +7,9 @@ set -euo pipefail
 # configure script actions
 DO_PREPARE_OS=true
 DO_INSTALL_ENCLAVE=true
-DO_INSTALL_NETDATA=false
-DO_RESTRICT_ROOT=false
-DO_UNATTENDED_UPGRADES=false
+DO_INSTALL_NETDATA=true
+DO_RESTRICT_ROOT=true
+DO_UNATTENDED_UPGRADES=true
 
 # variables
 NEW_HOSTNAME=""
@@ -19,6 +19,11 @@ SSH_KEY=""
 NETDATA_CLOUD_CLAIM_TOKEN=""
 
 # =========================================================================
+
+if [ "$EUID" -ne 0 ]; then
+  echo "Please run as root"
+  exit
+fi
 
 # update
 if [ "$DO_PREPARE_OS" = "true" ]; then
@@ -32,14 +37,14 @@ if [ "$DO_PREPARE_OS" = "true" ]; then
     echo '* libraries/restart-without-asking boolean true' | debconf-set-selections
 
     apt update && apt upgrade -y
-    apt install -y needrestart
-    apt install -y gcc make tzdata jq iputils-ping net-tools iperf3 tcpdump telnet unzip wget screen software-properties-common gnupg speedtest-cli openssh-server
+    apt DEBIAN_FRONTEND=noninteractive install -y needrestart
+    apt DEBIAN_FRONTEND=noninteractive install -y gcc make tzdata jq iputils-ping net-tools iperf3 tcpdump telnet unzip wget screen software-properties-common gnupg speedtest-cli openssh-server
 
-    timedatectl set-ntp on
-    timedatectl set-timezone UTC
+    sudo timedatectl set-ntp on
+    sudo timedatectl set-timezone UTC
 
-    systemctl enable ssh
-    systemctl start ssh
+    sudo systemctl enable ssh
+    sudo systemctl start ssh
 
     if [ -n "$NEW_HOSTNAME" ]; then
 
@@ -51,14 +56,10 @@ if [ "$DO_PREPARE_OS" = "true" ]; then
     fi
 
     # Set language to Nederlands (Dutch)
-    echo "Setting system language to Nederlands (Dutch)..."
-    update-locale LANG=nl_NL.UTF-8
-    export LANG=nl_NL.UTF-8
+    # TODO
 
     # Set keyboard layout to Belgian
-    echo "Setting keyboard layout to Belgian..."
-    localectl set-keymap be-latin1
-
+    # TODO
 fi
 
 # install enclave
