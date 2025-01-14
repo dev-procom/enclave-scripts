@@ -37,8 +37,8 @@ if [ "$DO_PREPARE_OS" = "true" ]; then
     echo '* libraries/restart-without-asking boolean true' | debconf-set-selections
 
     apt update && apt upgrade -y
-    apt DEBIAN_FRONTEND=noninteractive install -y needrestart
-    apt DEBIAN_FRONTEND=noninteractive install -y gcc make tzdata jq iputils-ping net-tools iperf3 tcpdump telnet unzip wget screen software-properties-common gnupg speedtest-cli openssh-server
+    apt install -y needrestart
+    apt install -y gcc make tzdata jq iputils-ping net-tools iperf3 tcpdump telnet unzip wget screen software-properties-common gnupg speedtest-cli openssh-server
 
     sudo timedatectl set-ntp on
     sudo timedatectl set-timezone UTC
