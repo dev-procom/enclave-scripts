@@ -101,7 +101,8 @@ if [ "$DO_RESTRICT_ROOT" = "true" ]; then
     fi
 
     if [ -n "$SSH_KEY" ]; then
-        # Use SSH key for authentication
+
+        # Use SSH keys for authentication
         echo "Restricting root access with SSH key..."
 
         useradd -m -d /home/$SSH_USERNAME -s /bin/bash $SSH_USERNAME
@@ -113,19 +114,60 @@ if [ "$DO_RESTRICT_ROOT" = "true" ]; then
         chown -R $SSH_USERNAME:$SSH_USERNAME /home/$SSH_USERNAME/.ssh
         chmod 700 /home/$SSH_USERNAME/.ssh
         chmod 600 /home/$SSH_USERNAME/.ssh/authorized_keys
-        usermod -a -G $SSH_USERNAME
 
+        # Add user to sudoers
         echo "$SSH_USERNAME ALL=(ALL) NOPASSWD:ALL" | tee /etc/sudoers.d/10-$SSH_USERNAME-users > /dev/null
 
+        # Ensure public key authentication is enabled in SSH server configuration
+        sed -i 's/^#\?PubkeyAuthentication.*/PubkeyAuthentication yes/' /etc/ssh/sshd_config
+
+        # Update any conflicting settings in included config files
+        for config_file in /etc/ssh/sshd_config.d/*.conf; do
+            if grep -q 'PubkeyAuthentication no' "$config_file"; then
+                sed -i 's/^#\?PubkeyAuthentication no/PubkeyAuthentication yes/' "$config_file"
+            fi
+        done
+
+        # Disable root SSH login
+        sed -i 's/PermitRootLogin yes/PermitRootLogin no/g' /etc/ssh/sshd_config
+
     elif [ -n "$SSH_PASSWD" ]; then
+
+        # Ensure password authentication is enabled in SSH server configuration
+        echo "Enabling password authentication for SSH..."
+
+        # This directive enables or disables challenge-response authentication mechanisms,
+        # such as password-based login with additional prompts or One-Time Passwords (OTP).
+        # If "yes," SSH may interact with PAM to provide multi-step authentication.
+        # If "no," such mechanisms are disabled, and simpler methods like plain password
+        # authentication (controlled by PasswordAuthentication) or public key authentication
+        # are used instead.
+        sed -i 's/^#\?ChallengeResponseAuthentication.*/ChallengeResponseAuthentication no/' /etc/ssh/sshd_config
+
+        # Update PasswordAuthentication in the main sshd_config file
+        # This directive controls whether the SSH server allows password-based authentication.
+        # If set to "yes," users can authenticate using their account passwords.
+        # If set to "no," password-based logins are disabled, and users must authenticate
+        # using alternative methods such as public key authentication.
+        sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
+
+        # Update PasswordAuthentication in all included config files
+        for config_file in /etc/ssh/sshd_config.d/*.conf; do
+            if grep -q 'PasswordAuthentication no' "$config_file"; then
+                sed -i 's/^#\?PasswordAuthentication no/PasswordAuthentication yes/' "$config_file"
+            fi
+        done
 
         # Use password for authentication
         echo "Restricting root access with password..."
 
         useradd -m -d /home/$SSH_USERNAME -s /bin/bash $SSH_USERNAME
-        echo "$SSH_USERNAME:$SSH_PASSWD" | chpasswd
 
+        echo "$SSH_USERNAME:$SSH_PASSWD" | chpasswd
         echo "$SSH_USERNAME ALL=(ALL) NOPASSWD:ALL" | tee /etc/sudoers.d/10-$SSH_USERNAME-users > /dev/null
+
+        # Disable root SSH login
+        sed -i 's/PermitRootLogin yes/PermitRootLogin no/g' /etc/ssh/sshd_config
 
     else
 
@@ -133,9 +175,6 @@ if [ "$DO_RESTRICT_ROOT" = "true" ]; then
         exit 1
 
     fi
-
-    # Disable root SSH login
-    sed -i 's/PermitRootLogin yes/PermitRootLogin no/g' /etc/ssh/sshd_config
 
     # Restart SSH service
     systemctl restart sshd
