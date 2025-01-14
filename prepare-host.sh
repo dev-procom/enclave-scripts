@@ -13,7 +13,8 @@ DO_UNATTENDED_UPGRADES=false
 
 # variables
 NEW_HOSTNAME=""
-SSH_USERNAME=""
+SSH_USERNAME="enclave"
+SSH_PASSWD=""
 SSH_KEY=""
 NETDATA_CLOUD_CLAIM_TOKEN=""
 
@@ -32,10 +33,13 @@ if [ "$DO_PREPARE_OS" = "true" ]; then
 
     apt update && apt upgrade -y
     apt install -y needrestart
-    apt install -y gcc make tzdata jq iputils-ping net-tools iperf3 tcpdump telnet unzip wget screen software-properties-common gnupg speedtest-cli
+    apt install -y gcc make tzdata jq iputils-ping net-tools iperf3 tcpdump telnet unzip wget screen software-properties-common gnupg speedtest-cli openssh-server
 
     timedatectl set-ntp on
     timedatectl set-timezone UTC
+
+    systemctl enable ssh
+    systemctl start ssh
 
     if [ -n "$NEW_HOSTNAME" ]; then
 
@@ -45,6 +49,15 @@ if [ "$DO_PREPARE_OS" = "true" ]; then
         sed -i "s/$HOSTNAME/$NEW_HOSTNAME/g" /etc/hostname
         hostname $NEW_HOSTNAME
     fi
+
+    # Set language to Nederlands (Dutch)
+    echo "Setting system language to Nederlands (Dutch)..."
+    update-locale LANG=nl_NL.UTF-8
+    export LANG=nl_NL.UTF-8
+
+    # Set keyboard layout to Belgian
+    echo "Setting keyboard layout to Belgian..."
+    localectl set-keymap be-latin1
 
 fi
 
@@ -78,24 +91,23 @@ if [ "$DO_INSTALL_NETDATA" = "true" ]; then
 
 fi
 
-# restrict root access to
+# restrict root access
 if [ "$DO_RESTRICT_ROOT" = "true" ]; then
 
-    if [ -z "$SSH_USERNAME" ] || [ -z "$SSH_KEY" ]; then
+    if [ -z "$SSH_USERNAME" ]; then
+        echo "Error: SSH_USERNAME is required."
+        exit 1
+    fi
 
-        echo "Error: Cannot restrict root access, USERNAME and SSH_KEY are both required."
-        echo "  USERNAME: $SSH_USERNAME"
-        echo "  SSH_KEY:  $SSH_KEY"
-
-    else
-
-        echo "Restricting root access ..."
+    if [ -n "$SSH_KEY" ]; then
+        # Use SSH key for authentication
+        echo "Restricting root access with SSH key..."
 
         useradd -m -d /home/$SSH_USERNAME -s /bin/bash $SSH_USERNAME
 
         mkdir -p /home/$SSH_USERNAME/.ssh
 
-        echo $SSH_KEY | tee /home/$SSH_USERNAME/.ssh/authorized_keys >/dev/null
+        echo "$SSH_KEY" | tee /home/$SSH_USERNAME/.ssh/authorized_keys >/dev/null
 
         chown -R $SSH_USERNAME:$SSH_USERNAME /home/$SSH_USERNAME/.ssh
         chmod 700 /home/$SSH_USERNAME/.ssh
@@ -104,13 +116,28 @@ if [ "$DO_RESTRICT_ROOT" = "true" ]; then
 
         echo "$SSH_USERNAME ALL=(ALL) NOPASSWD:ALL" | tee /etc/sudoers.d/10-$SSH_USERNAME-users > /dev/null
 
-        # disable root ssh login
-        sed -i 's/PermitRootLogin yes/PermitRootLogin no/g' /etc/ssh/sshd_config
+    elif [ -n "$SSH_PASSWD" ]; then
 
-        # restart sshd
-        systemctl restart sshd
+        # Use password for authentication
+        echo "Restricting root access with password..."
+
+        useradd -m -d /home/$SSH_USERNAME -s /bin/bash $SSH_USERNAME
+        echo "$SSH_USERNAME:$SSH_PASSWD" | chpasswd
+
+        echo "$SSH_USERNAME ALL=(ALL) NOPASSWD:ALL" | tee /etc/sudoers.d/10-$SSH_USERNAME-users > /dev/null
+
+    else
+
+        echo "Error: Either SSH_KEY or SSH_PASSWD must be defined to restrict root access."
+        exit 1
 
     fi
+
+    # Disable root SSH login
+    sed -i 's/PermitRootLogin yes/PermitRootLogin no/g' /etc/ssh/sshd_config
+
+    # Restart SSH service
+    systemctl restart sshd
 
 fi
 
