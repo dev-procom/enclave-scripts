@@ -3,7 +3,10 @@ Param(
     [string]$orgId,
 
     [Parameter(Mandatory=$true)]
-    [string]$apiKey = ""
+    [string]$apiKey = "",
+
+    [Parameter(Mandatory=$true)]
+    [string]$customerName = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -18,7 +21,6 @@ if ($apiKey -eq "") {
     return;
 }
 
-$customerName = "customer"
 $currentDateTime = Get-Date -Format "yyyy-MM-dd"
 $notes = "Auto-provisioned by API on $currentDateTime, do not delete."
 $gatewaySystemId = ""
