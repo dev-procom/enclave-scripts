@@ -1,9 +1,9 @@
 #Param(
 #    [Parameter(Mandatory=$true)]
-#    [string]$orgId = "c97bc4ff23af428397a3630860912973",
+#    [string]$orgId = "",
 #
 #    [Parameter(Mandatory=$true)]
-#    [string]$apiKey = "3u3daJsqv7rnckSF5Go3dkoZ8faecHmFxKheaUS84bFk5y44PTiKtbkGXK9fpW4",
+#    [string]$apiKey = "",
 #
 #    [Parameter(Mandatory=$true)]
 #    [string]$customerName = "lennertje",
@@ -12,12 +12,6 @@
 #    [string]$newHostname = "enclave-gw-vm01"
 #)
 
-Param(
-$orgId = "c97bc4ff23af428397a3630860912973",
-$apiKey = "3u3daJsqv7rnckSF5Go3dkoZ8faecHmFxKheaUS84bFk5y44PTiKtbkGXK9fpW4",
-$customerName = "lennertje",
-$newHostname = "enclave-gw-vm01"
-)
 
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
