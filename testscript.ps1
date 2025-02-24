@@ -1,21 +1,9 @@
-<#Param(
-    [Parameter(Mandatory=$true)]
-    [string]$orgId = "9b31819595f14ec7af0f19ff8813e84b", #ProCom
-
-    [Parameter(Mandatory=$true)]
-    [string]$apiKey = "eZS74Gw2svgBbCPtPnMVzTbDRg4BuFJEmfcjFjrYzdRaoe2K29GmuFEmKM2My3M", #TestScript_LV
- 
-    [Parameter(Mandatory=$true)]
-    [string]$customerName = "lennert",
-
-    [Parameter(Mandatory=$true)]
-    [string]$newHostname = "enclave-gw-vm01"
-)#>
-
 $orgId = "9b31819595f14ec7af0f19ff8813e84b" #ProCom
 $apiKey = "eZS74Gw2svgBbCPtPnMVzTbDRg4BuFJEmfcjFjrYzdRaoe2K29GmuFEmKM2My3M" #TestScript_LV
 $customerName = "lennert"
 $newHostname = "enclave-gw-vm01"
+$discoverSubnet = "autodiscover"
+$restrictedSubnet = "1.2.3.4/5"
 
 
 $ErrorActionPreference = "Stop"
@@ -62,15 +50,12 @@ function Invoke-EnclaveApi {
     }
 }
 
-# ------------
 
-# Enrolment keys
-##############################################################
+#region Enrolment Keys
 
 Write-Host "Creating enrolment keys..."
 
 $currentTime = (Get-Date).ToUniversalTime()
-$expiryDateNotification = (Get-Date).AddMinutes(90)
 
 $enrolmentKeys = @(
     @{
@@ -80,7 +65,7 @@ $enrolmentKeys = @(
         notes = "$notes"
         usesRemaining = 1
         tags = @(
-            "gateway"
+            "$NewHostname"
         )
         autoExpire = @{
             timeZoneId = "Etc/UTC"
@@ -90,7 +75,6 @@ $enrolmentKeys = @(
     }
 )
 
-
 foreach ($enrolmentKey in $enrolmentKeys)
 {
     $response = Invoke-EnclaveApi -Method Get -Uri "https://api.enclave.io/org/$orgId/enrolment-keys?search=$($enrolmentKey.description)"
@@ -98,11 +82,12 @@ foreach ($enrolmentKey in $enrolmentKeys)
     if ($response.metadata.total -eq 0)
     {
         # create enrolment key
-        Write-Host "  Creating enrolment key: $($enrolmentKey.description)"
-        $response = Invoke-EnclaveApi -Method Post -Uri "https://api.enclave.io/org/$orgId/enrolment-keys" -Body $enrolmentKey
+        Write-Host "Creating enrolment key: $($enrolmentKey.description)."
+        $response = Invoke-EnclaveApi -Method Post -Uri "https://api.enclave.io/org/$orgId/enrolment-keys" -Body $enrolmentKey 
     }
     else
     {
+        Write-Host "Skipping creation of enrolment key $($enrolmentKey.description): already exists!"
         # update enrolment key
         # edit: no reason to update this key, it's going to automatically expire in one hour
         # $tagRef = $response.items[0].ref
@@ -111,9 +96,9 @@ foreach ($enrolmentKey in $enrolmentKeys)
     }
 }
 
-# Tags
-##############################################################
+#endregion
 
+#region Tags
 $tags = @(
     @{
         name = "$($customerName)-medewerkers"
@@ -155,43 +140,9 @@ foreach ($tag in $tags)
         $null = Invoke-EnclaveApi -Method Patch -Uri "https://api.enclave.io/org/$orgId/tags/$tagRef" -Body $tagsPatch
     }
 }
+#endregion
 
-# Systems
-##############################################################
-
-Write-Host "Checking enrolled systems..."
-
-# Search for systems enrolled using the Gateway key
-$response = Invoke-EnclaveApi -Method Get -Uri "https://api.enclave.io/org/$orgId/systems?search=key:Gateway"
-
-if ($response.items.Count -gt 0)
-{
-    $gatewaySystemId = $response.items[0].systemId
-    $gatewaySystemHostname = $response.items[0].hostname
-
-    # Tag the system and enable it to act as gateway
-    $systemPatch = @{
-        gatewayRoutes = @(
-            @{
-                subnet = "0.0.0.0/0"
-                userEntered = $true
-                weight = 0
-                name = "Internet"
-            }
-        )
-        tags = @("gateway")
-    }
-
-    Write-Host "  Refreshing system: $gatewaySystemId ($gatewaySystemHostname)"
-    $null = Invoke-EnclaveApi -Method Patch -Uri "https://api.enclave.io/org/$orgId/systems/$gatewaySystemId" -Body $systemPatch
-}
-else
-{
-    Write-Host "  No gateway systems enrolled"
-}
-
-# Trust requirements
-##############################################################
+#region Trust Requirements
 
 Write-Host "Creating trust requirements..."
 
@@ -233,9 +184,63 @@ foreach ($trustRequirement in $trustRequirements)
         $null = Invoke-EnclaveApi -Method Patch -Uri "https://api.enclave.io/org/$orgId/trust-requirements/$trustRequirementId" -Body $trustRequirement
     }
 }
+#endregion
 
-# Policies
-##############################################################
+
+#region Systems
+
+Write-Host "Checking enrolled systems..."
+
+if ($discoverSubnet -eq 'autodiscover') {
+    
+    $response = Invoke-EnclaveApi -Method Get -Uri "https://api.enclave.io/org/$orgId/systems?search=key:Gateway"
+}
+
+# Search for systems enrolled using the Gateway key
+$response = Invoke-EnclaveApi -Method Get -Uri "https://api.enclave.io/org/$orgId/systems?search=key:Gateway"
+
+if ($response.items.Count -gt 0)
+{
+    $gatewaySystemId = $response.items[0].systemId
+    $gatewaySystemHostname = $response.items[0].hostname
+
+    # Tag the system and enable it to act as gateway
+    $systemPatch = @{
+        gatewayRoutes = @(
+            @{
+                subnet = "$discoverSubnet"
+                userEntered = $true
+                weight = 0
+                name = "GatewayRoute"
+            }
+        )
+        tags = @("$NewHostname")
+    }
+
+    Write-Host "  Refreshing system: $gatewaySystemId ($gatewaySystemHostname)"
+    $null = Invoke-EnclaveApi -Method Patch -Uri "https://api.enclave.io/org/$orgId/systems/$gatewaySystemId" -Body $systemPatch
+}
+else
+{
+    $existingKey = Invoke-EnclaveApi -Method Get -Uri "https://api.enclave.io/org/$orgId/enrolment-keys?search=Gateway"
+ 
+    Write-Host "There is currently no gateway system enrolled. Please enroll at least one system using the following enrollment key.`nKey: " -NoNewline
+    Write-Host "$($existingKey.items.key) " -ForegroundColor Cyan -NoNewline
+    Write-Host "($($enrolmentKey.description))" 
+    Write-Host "Valid until: " -NoNewline
+    $utcString = $existingKey.items.autoExpire.expiryDateTime
+    $utcDateTimeOffset = [DateTimeOffset]::Parse($utcString)
+    $brusselsTimeZone = [System.TimeZoneInfo]::FindSystemTimeZoneById("Romance Standard Time")
+    $brusselsDateTime = [System.TimeZoneInfo]::ConvertTime($utcDateTimeOffset, $brusselsTimeZone)
+    $brusselsDateTimeString = $brusselsDateTime.ToString("dd/MM/yyyy HH:mm")
+    Write-Host $brusselsDateTimeString -ForegroundColor Cyan
+
+    exit 350020 #350020 - Specifieke exit code, regelt .sh behavior. (NO_GW_SYS)
+}
+
+#endregion
+
+#region Policies
 
 Write-Host "Configuring Policies..."
 $policiesModel = @(
@@ -272,7 +277,7 @@ if ($gatewaySystemId)
 {
     $policiesModel[0].gateways += @{
         systemId = "$gatewaySystemId"
-        routes = @("0.0.0.0/0")
+        routes = @("$restrictedSubnet")
     }
 }
 
@@ -354,9 +359,17 @@ foreach ($policyModel in $policiesModel)
         $null = Invoke-EnclaveApi -Method Post -Uri "https://api.enclave.io/org/$orgId/policies" -Body $policyModel
     }
 }
+#endregion
 
-Write-Host "Done"
+Write-Host "Configuration through PowerShell done"
+
+
+
+
+
+
+
+
+
+
 Read-Host "Press Enter to exit"
-
-# JSON debug
-#Write-Host $($policyModel | ConvertTo-Json -Depth 10)
