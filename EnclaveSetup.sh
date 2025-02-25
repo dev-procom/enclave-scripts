@@ -35,6 +35,7 @@ GREEN="\033[32m"
 YELLOW="\033[33m"
 CYAN="\033[96m"
 RED="\033[31m"
+GRAY="\033[90m"
 RESET="\033[0m"
 
 
@@ -74,7 +75,7 @@ echo -e "Default parameters:\n"
 for interactiveVariable in "${variable_names[@]}"; do
     echo -e "${CYAN}$interactiveVariable=${YELLOW}$(eval echo \$$interactiveVariable)"
 done
-    echo -en "${RESET}\nWould you like to run the script with these parameters? (Y/N): "
+    echo -en "${RESET}\nWould you like to run the script with the default parameters? (Y/N): "
     read -r USER_PARAM_CHOICE
 
 case "$USER_PARAM_CHOICE" in
@@ -83,19 +84,19 @@ case "$USER_PARAM_CHOICE" in
         ;;
     [Nn])
         echo -e "\nEntering interactive setup..."
-        echo -e "Configuring script actions. Accepted values: ${CYAN}true${RESET} | ${CYAN}false${RESET}\n"
+        echo -e "Configuring script actions. Accepted values: ${CYAN}true${RESET} | ${CYAN}false${RESET}"
 
         for interactiveVariable in "${variable_names[@]}"; do
-            echo -en "$interactiveVariable: ${CYAN}"
+            echo -en "\n$interactiveVariable: ${CYAN}"
             read -r input_value && echo -en "${RESET}"
             # Validate input
             while [[ ! "$input_value" =~ ^(true|false)$ ]]; do
-                echo -e "${RED}Invalid input. Please enter 'true' or 'false'.${RESET}"
+                echo -e "${RED}Invalid input. Please enter 'true' or 'false'.${RESET}\n"
                 echo -en "$interactiveVariable: ${CYAN}"
                 read -r input_value && echo -en "${RESET}"
             done
             eval $(echo -n $interactiveVariable)=$input_value
-            echo -e "$interactiveVariable has been set to ${CYAN}${!interactiveVariable}${RESET}.\n"
+            echo -e "$interactiveVariable has been set to ${CYAN}${!interactiveVariable}${RESET}."
         done
         ;;
     *)
@@ -107,25 +108,9 @@ esac
 # =========================================================================
 
 # Collecting extra information
-if [ "$DO_PREPARE_OS" = "true" ]; then
 
-    echo -ne "\nPlease provide the type of gateway:\n${CYAN}0${RESET}: Virtual Machine\n${CYAN}1${RESET}: Raspberry Pi\n\n... > "
-    read -r USER_GATEWAY_TYPE  
-
-    while [[ ! "$USER_GATEWAY_TYPE" =~ ^(0|1)$ ]]; do
-            echo -e "${RED}Invalid input. Please try again.${RESET}"
-            echo -ne "... > " && read -r USER_GATEWAY_TYPE  
-        done 
-
-    case "$USER_GATEWAY_TYPE" in
-        [0])
-            NewHostname="enclave-gw-vm01"
-            ;;
-        [1])
-            NewHostname="enclave-gw-rp01"
-            ;;
-    esac
-fi  
+#if [ "$DO_PREPARE_OS" = "true" ]; then
+#fi  
 
 if [ "$DO_CONNECT_NETDATA" = "true" ]; then
 
@@ -158,6 +143,25 @@ if [ "$DO_CONFIGURE_ENCLAVE" = "true" ]; then
     
     elif [ "$DO_INSTALL_ENCLAVE" = "true" ]; then
 
+        echo -ne "\nPlease provide the type of gateway:\n${CYAN}[0]${RESET} Virtual Machine\n${CYAN}[1]${RESET} Raspberry Pi\n\n... > "
+        read -r USER_GATEWAY_TYPE  
+
+        while [[ ! "$USER_GATEWAY_TYPE" =~ ^(0|1)$ ]]; do
+            echo -e "${RED}Invalid input. Please try again.${RESET}"
+            echo -ne "... > " && read -r USER_GATEWAY_TYPE  
+        done 
+
+        case "$USER_GATEWAY_TYPE" in
+            [0])
+                NewHostname="enclave-gw-vm01"
+                ;;
+            [1])
+                NewHostname="enclave-gw-rp01"
+                ;;
+        esac
+
+
+
         if [ "$DO_INSTALL_POWERSHELL" =  "true" ]; then
             echo -e "\n${CYAN}DO_CONFIGURE_ENCLAVE${RESET} was set to ${YELLOW}true${RESET}. Extra information is required."
 
@@ -166,8 +170,7 @@ if [ "$DO_CONFIGURE_ENCLAVE" = "true" ]; then
                 read -r orgId_input
                 orgId=$(echo "$orgId_input" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' )
 
-                echo -e "API Key set to ${CYAN}$orgId${RESET}."
-                echo -en "Proceed? (Y/N): " && read -r confirmation_orgId
+                echo -en "Organisation ID set to ${CYAN}$orgId${RESET}. Confirm? (Y/N): " && read -r confirmation_orgId
                 if [[ "$confirmation_orgId" =~ ^[Yy]$ ]]; then
                     break  # Exit loop if user confirms
                 else
@@ -177,11 +180,11 @@ if [ "$DO_CONFIGURE_ENCLAVE" = "true" ]; then
 
             while true; do
                 echo -en "\nPlease provide an Enclave API Key (${CYAN}apiKey${RESET}): "
-                read -r apiKey_input
-                apiKey=$(echo "$apiKey_input" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' )
+                read -r apiKey
+                #apiKey=$(echo "$apiKey_input" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' )
 
-                echo -e "API Key set to ${CYAN}$apiKey${RESET}."
-                echo -en "Proceed? (Y/N): " && read -r confirmation_apiKey
+                echo -en "API Key set to ${CYAN}$apiKey${RESET}. Confirm? (Y/N): " && read -r confirmation_apiKey
+
                 if [[ "$confirmation_apiKey" =~ ^[Yy]$ ]]; then
                     break  # Exit loop if user confirms
                 else
@@ -201,10 +204,10 @@ if [ "$DO_CONFIGURE_ENCLAVE" = "true" ]; then
                     continue  # Restart the loop
                 fi
 
-                echo -e "Final customer name: ${CYAN}$customerName${RESET}"
-                echo -en "Proceed? (Y/N): " && read -r confirmation_customerName
+                echo -en "Customer name: ${CYAN}$customerName${RESET}. Confirm? (Y/N): " && read -r confirmation_customerName
 
                 if [[ "$confirmation_customerName" =~ ^[Yy]$ ]]; then
+                    echo -e "\n"
                     break  # Exit loop if user confirms
                 else
                     echo -e "${RED}Please re-enter the customer name.${RESET}"
@@ -288,7 +291,7 @@ if [ "$DO_AUTODISCOVER_SUBNET" = "false" ]; then
             echo -en "\nSet a description for the network ${CYAN}$discoverSubnet${RESET}: "
             read discoverSubnetDesc
 
-                echo -en "Description will be set to: ${CYAN}$discoverSubnetDesc${RESET}. Proceed? (Y/N): "
+                echo -en "Description will be set to: ${CYAN}$discoverSubnetDesc${RESET}. Confirm? (Y/N): "
                 read -r confirmation_discoverSubnetDesc
                     if [[ "$confirmation_discoverSubnetDesc" =~ ^[Yy]$ ]]; then
                         break  # Exit loop if user confirms
@@ -371,7 +374,7 @@ if [ "$DO_RESTRICT_SUBNET" = "true" ]; then
             echo -en "\nSet a description for the restricted IP ${CYAN}$restrictedSubnet${RESET}: "
             read restrictedSubnetDesc
 
-                echo -en "Description will be set to: ${CYAN}$restrictedSubnetDesc${RESET}. Proceed? (Y/N): "
+                echo -en "Description will be set to: ${CYAN}$restrictedSubnetDesc${RESET}. Confirm? (Y/N): "
                 read -r confirmation_restrictedSubnetDesc
                     if [[ "$confirmation_restrictedSubnetDesc" =~ ^[Yy]$ ]]; then
                         break  # Exit loop if user confirms
@@ -390,7 +393,7 @@ fi
 # Prepare OS (update)
 if [ "$DO_PREPARE_OS" = "true" ]; then
 
-    echo "Updating and installing tooling ..."
+    echo -e "\nUpdating and installing tooling ...\n${GRAY}"
 
     # Set noninteractive mode
     export DEBIAN_FRONTEND=noninteractive
@@ -427,12 +430,15 @@ fi
 # install enclave
 if [ "$DO_INSTALL_ENCLAVE" = "true" ]; then
 
-    curl -fsSL https://packages.enclave.io/apt/enclave.stable.gpg | gpg --dearmor -o /usr/share/keyrings/enclave.gpg
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/enclave.gpg] https://packages.enclave.io/apt stable main" | tee /etc/apt/sources.list.d/enclave.stable.list
+    echo -e "\n${RESET}Installing Enclave packages...\n${GRAY}"
+
+    sudo rm -f /usr/share/keyrings/enclave.gpg
 
     
+    curl -fsSL https://packages.enclave.io/apt/enclave.stable.gpg | gpg --dearmor -o /usr/share/keyrings/enclave.gpg
+    echo -e "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/enclave.gpg] https://packages.enclave.io/apt stable main" | tee /etc/apt/sources.list.d/enclave.stable.list
+    
     apt update
-
     apt install -y enclave
 
 fi
@@ -440,7 +446,7 @@ fi
 # setup netdata
 if [ "$DO_INSTALL_NETDATA" = "true" ]; then
 
-    echo "Installing NetData Agent ..."
+    echo -e "\n${RESET}Installing NetData Agent ...${GRAY}\n"
 
     if [ "$DO_CONNECT_NETDATA" = "true" ]; then
 
@@ -458,7 +464,7 @@ fi
 # unattended upgrades
 if [ "$DO_UNATTENDED_UPGRADES" = "true" ]; then
 
-    echo "Configuring unattended upgrades ..."
+    echo -e "\n${RESET}Configuring unattended upgrades ...${GRAY}\n"
 
     # install unattended-upgrades
     apt install -y unattended-upgrades
@@ -505,7 +511,7 @@ fi
 
 if [ "$DO_INSTALL_POWERSHELL" = "true" ]; then
 
-    echo "Installing Powershell for Ubuntu Systems ..."
+    echo -e "\n${RESET}Installing Powershell for Ubuntu Systems ...${GRAY}\n"
     
     # .sh source 
     # https://learn.microsoft.com/en-us/powershell/scripting/install/install-ubuntu?view=powershell-7.5
@@ -541,7 +547,8 @@ fi
 
 if [ "$DO_CONFIGURE_ENCLAVE" = "true" ]; then
 
-    echo "Starting Enclave configuration"
+    echo -e "\n${RESET}Starting Enclave configuration${GRAY}"
+
     ConfigureScript="ConfigureEnclave.ps1"
     
     if ! command -v enclave &> /dev/null; then
@@ -554,37 +561,41 @@ if [ "$DO_CONFIGURE_ENCLAVE" = "true" ]; then
         exit 1  # Exit with a non-zero status to indicate failure
     fi
 
-    echo "Loading PowerShell modules ..."
+    echo -e "${RESET}Loading PowerShell modules ..."
 
     #First pass through config, before enrolling a gateway system
     if [ -f "./$ConfigureScript" ]; then
 
         configureEnclave() {
-            pwsh -File ./$ConfigureScript -orgId "$orgId" -apiKey "$apiKey" -customerName "$customerName" -newHostname "$NewHostname" -discoverSubnet "$discoverSubnet" -discoverSubnetDesc "$discoverSubnetDesc" -restrictedSubnet "$restrictedSubnet" -restrictedSubnetDesc "$restrictedSubnetDesc"
+            pwsh -File $ConfigureScript -orgId "$orgId" -apiKey "$apiKey" -customerName "$customerName" -newHostname "$NewHostname" -discoverSubnet "$discoverSubnet" -discoverSubnetDesc "$discoverSubnetDesc" -restrictedSubnet "$restrictedSubnet" -restrictedSubnetDesc "$restrictedSubnetDesc"
         }
 
-        EnrolmentKey=$(pwsh -Command '[System.Environment]::GetEnvironmentVariable("EnrolmentkeyGateway", [System.EnvironmentVariableTarget]::Process)')
-        echo "Found variable from PowerShell: $EnrolmentKey"
 
         while true; do
 
-            echo "Loop 1/2: Preparing Enclave environment..."
-            configureEnclave
-            exit_code=$?
+            echo -e "\nStarting Powershell module${CYAN} [Preparing Enclave environment] ${GRAY}[1/2]${RESET}\n"
 
-            if [ "$exit_code" -eq 350020 ]; then
-                echo -en "\nPress enter after enrolling a gateway system to continue the configuration."
-                read -r  # Wait for the user to press enter
+            configureEnclave
+
+            EnrolmentkeyGateway=$(sed -n '1p' /tmp/variables.txt)
+            exitCode=$(sed -n '2p' /tmp/variables.txt)
+
+            rm /tmp/variables.txt &>/dev/null
+
+            if [ "$exitCode" -eq 350020 ]; then
+                echo -e "\nEnrolling new gateway system..."
+                sudo enclave enroll $EnrolmentkeyGateway --force
+                
             else
                 # If exit code is not 350020, break out of loop (exit successfully)
                 break
             fi
         done
 
-        echo "Loop 2/2: Enrolling gateway systems..."
+        echo -e "\nStarting Powershell module${CYAN} [Enrolling gateway systems] ${GRAY}[2/2]${RESET}\n"
         configureEnclave
     
-        echo "Enclave configuration complete."
+        echo -e "Enclave configuration complete."
     
     else
         echo -e "${RED}Error: ${RESET}the PowerShell script ${CYAN}$ConfigureScript${RESET} was not found!"

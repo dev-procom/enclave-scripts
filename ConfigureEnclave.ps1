@@ -25,7 +25,7 @@ Param(
 )
 
  
-$host.UI.RawUI.BackgroundColor = "Black"; Clear-Host #Set black bg
+$host.UI.RawUI.BackgroundColor = "Black" #Set black bg
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
@@ -284,10 +284,14 @@ else
     $brusselsDateTimeString = $brusselsDateTime.ToString("dd/MM/yyyy HH:mm")
     Write-Host "$brusselsDateTimeString`n`n" -ForegroundColor Cyan
 
-    # Set environment variable for use in shell script
-    [System.Environment]::SetEnvironmentVariable("EnrolmentkeyGateway", "$($existingKey.items.key)", [System.EnvironmentVariableTarget]::Process)
+    $EnrolmentkeyGateway = $existingKey.items.key
+    $exitCode = 350020
 
-    exit 350020 #350020 - Specifieke exit code, regelt .sh behavior. (NO_GW_SYS)
+    "$EnrolmentkeyGateway" | Out-File /tmp/variables.txt
+    "$exitCode" | Out-File -Append /tmp/variables.txt  # Append to file
+
+    exit 0
+    
 }
 
 #endregion
@@ -430,5 +434,5 @@ foreach ($policyModel in $policiesModel)
 }
 #endregion
 
-Write-Host "`nConfiguration OK!`n`n----`n`n"
-Read-Host "Press Enter to exit"
+Write-Host "`nConfiguration OK!`n`n" -ForegroundColor Green
+Write-Host "----`n`n"
