@@ -406,7 +406,7 @@ if [ "$DO_PREPARE_OS" = "true" ]; then
     apt install -y gcc make tzdata jq iputils-ping net-tools iperf3 tcpdump telnet unzip wget screen software-properties-common gnupg speedtest-cli openssh-server
 
     sudo timedatectl set-ntp on
-    sudo timedatectl set-timezone UTC
+    sudo timedatectl set-timezone Europe/Brussels
 
     sudo systemctl enable ssh 
     sudo systemctl start ssh 
